@@ -273,6 +273,46 @@ class SQLiteTaskRepository:
             if not self._connection:
                 close_connection(connection)
 
+    def delete_task(self, task_id: int) -> bool:
+        """
+        Permanently delete a task from the database.
+
+        This method removes a task completely from storage. Unlike marking
+        a task as completed, this operation is irreversible.
+
+        Args:
+            task_id: Unique identifier of the task to delete
+
+        Returns:
+            bool: True if the task was successfully deleted, False if the
+                  task was not found or could not be deleted
+
+        Raises:
+            RuntimeError: If the database operation fails due to connection
+                         issues, constraint violations, or other database errors
+        """
+        connection = self._get_connection()
+        try:
+            cursor = connection.cursor()
+
+            # Delete task using SQL pattern from contract
+            cursor.execute("""
+                DELETE FROM tasks WHERE id = ?
+            """, (task_id,))
+
+            rows_affected = cursor.rowcount
+            connection.commit()
+
+            # Return True if exactly one row was deleted
+            return rows_affected == 1
+
+        except sqlite3.Error as e:
+            connection.rollback()
+            raise RuntimeError(f"Failed to delete task: {e}")
+        finally:
+            if not self._connection:
+                close_connection(connection)
+
     def _row_to_task(self, row: sqlite3.Row) -> Task:
         """
         Convert database row to Task object.
